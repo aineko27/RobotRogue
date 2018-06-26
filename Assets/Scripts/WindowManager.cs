@@ -3,15 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class WindowManager : SingletonMonoBehaviour<WindowManager>
+public class WindowManager : SingletonMonoBehavior<WindowManager>
 {
-    //変数の宣言
-    private Text messageText;
-    private Image nextPageImage;
-    public GameObject Panel;
-    private GameObject NextPageIcon;
-    private GameObject TextMessage;
-    private Text textMessage;
+    //子要素のゲームオブジェクトとそのコンポーネントの宣言
+    private static Image nextPageImage;
+    public static GameObject MessageWindow;
+    private static GameObject NextPageIcon;
+    private static GameObject MessageText;
+    private static Text messageText;
+
+    //メッセージテキストをスタックするリスト
+    public static List<string> stackedMessageList = new List<string>();
 
     //WindowManagerを生成する準備
     public static WindowManager instance = null;
@@ -30,21 +32,22 @@ public class WindowManager : SingletonMonoBehaviour<WindowManager>
     //Start
     void Start()
     {
-        //各ゲームオブジェクトの取得
-        Panel = transform.Find("Panel").gameObject;
-        NextPageIcon = Panel.transform.Find("NextPageIcon").gameObject;
-        TextMessage = Panel.transform.Find("TextMessage").gameObject;
-        textMessage = TextMessage.GetComponent<Text>();
+        //子要素のゲームオブジェクトとそのコンポーネントの取得
+        MessageWindow = transform.Find("MessageWindow").gameObject;
+        NextPageIcon = MessageWindow.transform.Find("NextPageIcon").gameObject;
+        MessageText = MessageWindow.transform.Find("MessageText").gameObject;
+        messageText = MessageText.GetComponent<Text>();
 
-        //メッセージテキストを取得し、初期値を代入
-        textMessage.text = "WARNING: \n" +
-                            "THIS TXET IS \n" +
-                            "LOREM IPSUM.";
-        //メッセージテキストを最初は見えないようにする
-        Panel.SetActive(false);
+        //初期メッセージテキストの設定
+        messageText.text = "HELLO \n" +
+                           "THIS TXET IS \n" +
+                           "LOREM IPSUM.";
+
+        //ゲーム開始時はメッセージテキストを非表示にする
+        MessageWindow.SetActive(false);
     }
 
-    //windowStateの設定
+    //windowStateの列挙体と変数の宣言
     public enum WindowState
     {
         field,
@@ -53,35 +56,69 @@ public class WindowManager : SingletonMonoBehaviour<WindowManager>
     public static WindowState windowState;
 
 
-    //ウィンドウを表示状態にする関数
-    public void SetWindowActive(bool b)
+    //遅延処理後にメッセージウィンドウを非表示状態にする連続処理関数関数
+    public static IEnumerator SetWindowInactiveWithDelay(float waitTime)
     {
-        Panel.SetActive(b);
+        //引数の時間に従い遅延処理を行う
+        yield return new WaitForSeconds(waitTime);
+
+        //メッセージウィンドウを非表示状態にする
+        MessageWindow.SetActive(false);
     }
 
-    //ダメージメッセージを表示する関数
-    public void DisplayDamageMessage(string attackerName, string attackedName, int damage, bool hasNextPage)
+    //メッセージテキストを表示する関数
+    public static void DisplayMessageText()
     {
-        //まずはパネルを表示するようにする
-        Panel.SetActive(true);
+        //メッセージウィンドウを有効化する
+        MessageWindow.SetActive(true);
 
-        //与えられた引数に従ってメッセージを表示する
-        textMessage.text = attackerName + "は" + attackedName + "に\n" +
-                           damage.ToString() +  "のダメージを与えた。";
+        //メッセージテキストを表示する
+        messageText.text = stackedMessageList[0];
 
-        //もし次のメッセージ文が存在する場合はNextPageIconを表示するようにする
-        NextPageIcon.SetActive(hasNextPage);
+        //今表示したメッセージリストの要素を消去する
+        stackedMessageList.RemoveAt(0);
 
+        //もしまだメッセージリストの要素が残っている場合、ページ送り画像を有効化し次のメッセージ表示を促す
+        if(stackedMessageList.Count > 0)
+        {
+            NextPageIcon.SetActive(true);
+        }
+        //そうでない場合、メッセージスタッキング真偽値を偽にし、ページ送り画像を無効化する
+        else
+        {
+            NextPageIcon.SetActive(false);
+            GameManager.messageIsStacking = false;
+        }
     }
 
-    //志望メッセージを表示する関数
-    public void DisplayDeathMessage()
+    //引数のメッセージを蓄積メッセージテキストに追加する関数
+    private static void StackMessageText(string displayMessageText)
     {
-        //まずはパネルを表示するようにする
-        Panel.SetActive(true);
+        //引数のメッセージテキストを蓄積メッセージリストに追加する
+        stackedMessageList.Add(displayMessageText);
 
+        //メッセージスタッキング真偽値を真にする
+        GameManager.messageIsStacking = true;
+    }
+
+    //ダメージメッセージを作成する関数
+    public static void MakeDamageText(string attackUnitName, string damagedUnitName, int damage)
+    {
+        //与えられた引数に従ってメッセージを作成する
+        string displayMessageText = attackUnitName + "は" + damagedUnitName + "に\n" +
+                    damage.ToString() + "のダメージを与えた。";
+
+        //作成したメッセージを蓄積メッセージテキストに追加する
+        StackMessageText(displayMessageText);
+    }
+
+    //死亡メッセージを作成する関数
+    public static void MakeDeathText(string attackUnitName, string damagedUnitName)
+    {
         //与えられた引数に従ってメッセージを表示する
-        textMessage.text = "プレイヤーは敵を\n" +
-                            "倒した。";
+        string displayMessageText = damagedUnitName + "をやっつけた\n";
+
+        //作成したメッセージを蓄積メッセージテキストに追加する
+        StackMessageText(displayMessageText);
     }
 }

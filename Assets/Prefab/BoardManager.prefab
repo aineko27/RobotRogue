@@ -51,8 +51,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ead16589fe97f0643a9de9404ec7dba1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  boardWidth: {x: -7, y: 7}
-  boardHeight: {x: -7, y: 7}
   floorSprite:
   - {fileID: 1270556613788254, guid: 4f5ca87367d5f1249bef973618320174, type: 2}
   - {fileID: 1724072315026810, guid: dd45a9e4f5b14af4897a4ff254854b51, type: 2}

@@ -4,39 +4,78 @@ using System.IO;
 using UnityEngine;
 using System;
 
-public class GameManager : SingletonMonoBehaviour<GameManager>
+public class GameManager : SingletonMonoBehavior<GameManager>
 {
-    //ファイルの宣言
-    StreamReader sr;
-
     //フレームカウントを宣言、各フレームごとにインクリメントする
-    [Watch]public static int frameCount = 0;
-    //ランダムシードを宣言する
-    public int randomSeed;
+    [Watch] public static int frameCount = 0;
+    [Watch] public static int turnCount = 0;
 
-    //gameStateの設定
+    //キー入力が保存されているファイルの宣言
+    private static StreamReader streamReader;
+
+    //私用するプレハブの宣言(Inspectorで取得する)
+    public GameObject EnemyPrefab;
+
+
+
+    //ランダムシードを宣言する
+    private static int randomSeed;
+
+    //ユニットが移動中であるかを示す真偽値の宣言
+   private static bool unitsAreMoving = false;
+
+    //アニメーションが作動しているかを示す真偽値の宣言
+    public static bool animationIsRunning = false;
+    public static Animator runningUnitAnimator = new Animator();
+    public static string runningAnimationName = "";
+
+    //メッセージテキストがスタックしているかを示す真偽値の宣言
+    public static bool messageIsStacking = false;
+
+    //コマンドウィンドウが表示されているかを示す真偽値の宣言
+    public static bool commandWindowIsDisplaying = false;
+
+    //現在表示されているコマンドウィンドウの列挙体と変数の宣言
+    public enum CommandWindowState
+    {
+        Window1
+    }
+    public static CommandWindowState commandWindowState;
+
+    //キー入力が制限されているかを示す真偽値の宣言
+    public static int keyInputRestrictionCount = 0;
+
+    //gameStateの列挙体と変数の宣言
     public enum GameState
     {
         TitleWindow,
+        InDungeon
+    }
+    private static GameState gameState;
+
+    //turnStateの列挙体と変数の宣言
+    public enum TurnState
+    {
         DecidePlayerBehavior,
         DecideEnemyBehavior,
         StartUnitMovement,
         StartPlayerAttack,
+        AfterPlayerAttack,
         WaitPlayerAttackComplete,
         WaitMovementComplete,
     }
-    [Watch] public static GameState gameState;
+    [Watch] private static TurnState turnState;
 
-    //playStateの設定
+    //playStateの列挙体と変数の宣言
     public enum PlayState
     {
         Neutral,
         Save,
         Replay
     }
-    [Watch]public PlayState playState;
+    public PlayState playState;
 
-    //GameManagerを生成する準備
+    //GameManagerをシングルトンで生成する準備
     public static GameManager instance = null;
 
     //Awake
@@ -59,26 +98,27 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
         //もしプレイステートがSaveの場合
         if (playState == PlayState.Save)
         {
-            //まずは既存のInputtedKeyData.txtファイルを消す
+            //まずは既存のInputtedKeyData.txtファイルを消去する
             System.IO.File.Delete("./InputtedKeyData.txt");
-            //ランダムシードを設定し、InitState関数に入れる
+
+            //ランダムシードを設定し、Random.InitState関数に代入し実行する
             randomSeed = UnityEngine.Random.Range(0, 10000);
             //randomSeed = 42;
             UnityEngine.Random.InitState(randomSeed);
 
-            //設定したランダムシードをInputtedKeyData.txtの１行目に保存する
-            StreamWriter sw = new StreamWriter("./InputtedKeyData.txt", true);
-            sw.WriteLine(randomSeed.ToString());
-            sw.Flush();
-            sw.Close();
+            //InputtedKeyData.txtを開き、設定したランダムシードを１行目に書き込み、ファイルを閉じる
+            StreamWriter streamWriter = new StreamWriter("./InputtedKeyData.txt", true);
+            streamWriter.WriteLine(randomSeed.ToString());
+            streamWriter.Flush();
+            streamWriter.Close();
 
         }
         //もしプレイステートがReplayの場合
         else if (playState == PlayState.Replay)
         {
-            //まずはInputtedKeyData.txtからランダムシードを読み込み、InitState関数に入れる
-            sr = new StreamReader("./InputtedKeyData.txt");
-            randomSeed = int.Parse(sr.ReadLine());
+            //InputtedKeyData.txtを開き、ファイルからランダムシードを読み込み、InitState関数に代入し実行する
+            streamReader = new StreamReader("./InputtedKeyData.txt");
+            randomSeed = int.Parse(streamReader.ReadLine());
             UnityEngine.Random.InitState(randomSeed);
         }
 
@@ -89,7 +129,7 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     //ゲーム開始起動時に処理する関数
     private void InitGame()
     {
-        //gameStateをタイトルウィンドウにする
+        //turnStateをタイトルウィンドウにする
         gameState = GameState.TitleWindow;
 
         //ダンジョンをセットアップする
@@ -99,183 +139,257 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     //ダンジョンをセットアップする関数
     public void SetupDungeon()
     {
-        //gameStateとwindowStateの更新
-        gameState = GameState.DecidePlayerBehavior;
+        //各種ステートの更新
+        gameState = GameState.InDungeon;
+        turnState = TurnState.DecidePlayerBehavior;
         WindowManager.windowState = WindowManager.WindowState.field;
 
         //ボードのセットアップ
         BoardManager.Instance.SetupBoard();
 
+        //自機ユニットのステータスを設定し、自機ユニットををユニットリストの0番目に加える
+        //PlayerManager.SetUnitStatus();
+        Unit.unitList.Add(PlayerManager.instance.GetComponent<PlayerManager>());
+
+        //自機ユニットをCameraControllerの参照オブジェクトに設定する
+        //CameraController.RefferenceObject = Unit.
+
         //敵の配置
-        EnemyManager.Instance.DeployEnemy(EnemyManager.EnemyName.Skelton, 2);
+        GameObject instance = Instantiate(EnemyPrefab);
+        instance.GetComponent<EnemyManager>().SetUnitStatus(EnemyManager.UnitName.EliteSkelton);
     }
 
-    private void Update()
+    //ゲームオーバー時の処理
+    public static void GameOver()
     {
-        //################################################デバッグ用################################################
 
-        //プレイステートがSaveの場合、キーが押されているキーコードの情報を取得し、InputtedKeyData.txtファイルに書き込む
+    }
+
+    void Update()
+    {
+        //frameCountのインクリメント
+        frameCount++;
+        //SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS【開始】デバッグ関連のシステム処理【開始】SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+                                                                                                                                                                                                //SSSSS
+        //ssssssssssssssssssssssssssssssssssssssssssssssss【始】デバッグ用の処理sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+        //プレイステートがSaveの場合、押されているキーコードをInputtedKeyData.txtファイルに書き込む
         if (playState == PlayState.Save)
         {
-            IpnutFunction.WriteInputtedKey();
+            InputFunction.WriteInputtedKey();
         }
-        //プレイステートがReadの場合、InputtedKeyData.txtファイルを読み込み、キーが押されているキーコードの情報を取得し、savedKeyArray配列として保存する
-        if (playState == PlayState.Replay)
+        //プレイステートがReadの場合、InputtedKeyData.txtファイルから保存されたキーコードを読み込む
+        else if (playState == PlayState.Replay)
         {
-            IpnutFunction.ReadInputtedKey(sr);
+            InputFunction.ReadInputtedKey(streamReader);
         }
-        //################################################################################################################################
+        //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】デバッグ用の処理eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        //EEEEE
+        //EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE【終了】デバッグ関連のシステム処理【終了】EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 
+        
 
-
-
-        //################################################ターン処理を行う################################################
-
-        //================================テキストウィンドウが表示されている場合================================
-        if(WindowManager.Instance.Panel.activeSelf == true)
+        //SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS【開始】ターン前の演出・操作関連の処理【開始】SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+        //SSSSS
+        //ssssssssssssssssssssssssssssssssssssssssssssssss【始】ユニットが移動中の処理sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+        //ユニット移動中真偽値が真である場合
+        if (unitsAreMoving == true)
         {
-            if(IpnutFunction.AnyKey() == true)
+            //checkCountを宣言
+            int checkCount = 1;
+
+            //全ユニットに対して移動中であるかを判別し、移動中でなかった場合、checkCountをインクリメントする
+            for (int i = 0; i < Unit.unitList.Count; i++)
             {
-
+                if (Unit.unitList[i].isMoving == false)
+                {
+                    checkCount++;
+                }
             }
+            //全ユニットが移動を終了している場合、ユニット移動中真偽値を偽にする
+            if(checkCount > Unit.unitList.Count)
+            {
+                unitsAreMoving = false;
+            }
+            //少なくとも1つのユニットが移動中の場合、ターン処理をここで打ち切る
             else
             {
                 return;
             }
         }
+        //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】ユニットが移動中の処理eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 
-        //================================ プレイヤーの振る舞い予定を決定する ================================
+
+        //ssssssssssssssssssssssssssssssssssssssssssssssss【始】アニメーションが作動している場合sssssssssssssssssssssssssssssssssssssssssssssssssssss
+        //アニメーション再生中真偽値が真である場合
+        if (animationIsRunning == true)
+        {
+            //今フレームもアニメーションが再生中であるばあい、ターン処理をここで打ち切る
+            if (runningUnitAnimator.GetCurrentAnimatorStateInfo(0).IsName(runningAnimationName) == true)
+            {
+                return;
+            }
+            //アニメーションが再生終了した場合、アニメーション再生中真偽値を偽にし、アニメーション再生情報変数を初期化する
+            else
+            {
+                animationIsRunning = false;
+                runningUnitAnimator = new Animator();
+                runningAnimationName = "";
+
+            }
+        }
+        //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】アニメーションが作動している場合eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+
+
+        //ssssssssssssssssssssssssssssssssssssssssssssssss【始】テキストウィンドウが表示されている場合sssssssssssssssssssssssssssssssssssssssssssssss
+        //メッセージ蓄積真偽値がもし真である場合、メッセージを表示する
+        if (messageIsStacking == true)
+        {
+            //まだメッセージウィンドウが表示されていない場合(又は)zキーが押された場合、メッセージテキストを更新し表示する
+            if (WindowManager.MessageWindow.activeSelf == false || InputFunction.GetKeyDown("Z") == true)
+            {
+                //メッセージテキストを更新し表示
+                WindowManager.DisplayMessageText();
+
+                //もしこれ以上メッセージの蓄積がない場合、キー入力制限真偽値を真にし、遅延処理後にメッセージウィンドウを非表示にする
+                if (messageIsStacking == false)
+                {
+                    keyInputRestrictionCount = 24;
+                    StartCoroutine(WindowManager.SetWindowInactiveWithDelay(2.0f));
+                }
+                return;
+            }
+            //zキーが押されない場合、ターン処理をここで打ち切る
+            else
+            {
+                return;
+            }
+        }
+        //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】テキストウィンドウが表示されている場合eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+
+
+        //ssssssssssssssssssssssssssssssssssssssssssssssss【始】キー入力制限がかかっている場合sssssssssssssssssssssssssssssssssssssssssssssssssssssss
+        //キー入力制限カウントが0より大きかった場合、カウントをディクリメントし、ターン処理をここで打ち切る
+        if (keyInputRestrictionCount > 0)
+        {
+            keyInputRestrictionCount--;
+            return;
+        }
+        //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】キー入力制限がかかっている場合eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        
+                                                                                                                                                                                                //EEEEE
+        //EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE【終了】ターン前の演出・操作関連の処理【終了】EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+
+
+
+        //SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS【開始】ターン処理【開始】SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+                                                                                                                                                                                                //SSSSS
+
+        //ssssssssssssssssssssssssssssssssssssssssssssssss【始】自機ユニットの振る舞い予定を決定するsssssssssssssssssssssssssssssssssssssssssssssssss
 
         //現在のゲームステートによってキー受付を変える
-        //ゲームステートがプレイヤーの振る舞い前だったら
-        if (gameState == GameState.DecidePlayerBehavior)
+        //ゲームステートが自機ユニットの振る舞い前だったら
+        if (turnState == TurnState.DecidePlayerBehavior)
         {
-            if(PlayerManager.Instance.scheduledBehavior != PlayerManager.ScheduledBehavior.NotDecided)
-            {
-                WindowManager.Instance.SetWindowActive(false);
+            //自機ユニットの振る舞い予定を決める
+            Unit.unitList[0].DecideBehavior();
 
+            //もし自機ユニットが行動を決定した場合、turnCountをインクリメントする
+            if (Unit.unitList[0].scheduledBehavior != PlayerManager.ScheduledBehavior.NotDecided)
+            {
+                //turnCountのインクリメント
+                turnCount++;
             }
-            //プレイヤーの振る舞い予定を決める
-            PlayerManager.Instance.DecideBehave();
             
-        }
-        
-        //================================プレイヤーの振る舞い予定によって、今後のゲーム処理の順番を変える================================
-
-        if (PlayerManager.Instance.scheduledBehavior != PlayerManager.ScheduledBehavior.NotDecided)
-        {
-            //****************プレイヤーの振る舞い予定が、移動だった場合****************
-            if (PlayerManager.Instance.scheduledBehavior == PlayerManager.ScheduledBehavior.Move)
+            //もし自機ユニットの振る舞い予定が移動だった場合、turnStateをDecideEnemyBehaveに遷移させる
+            if (Unit.unitList[0].scheduledBehavior == PlayerManager.ScheduledBehavior.Move)
             {
-                // 01.//敵ユニットの振る舞い予定を決める
-                if (gameState == GameState.DecideEnemyBehavior)
-                {
-                    EnemyManager.Instance.DecideEnemyBehave();
-                }
-                // 02.プレイヤーと敵ユニットの移動を始める
-                if (gameState == GameState.StartUnitMovement)
-                {
-                    if (PlayerManager.Instance.scheduledBehavior == PlayerManager.ScheduledBehavior.Move) PlayerManager.Instance.AnimatePlayerMovement();
-                    EnemyManager.Instance.AnimateEnemyMovement();
-                    gameState = GameState.WaitMovementComplete;
-                }
-                // 03.各ユニットの移動アニメーション終了の検知
-                if (gameState == GameState.WaitMovementComplete)
-                {
-                    DetectMovementComplete();
-                }
-                // 04.罠や状態異常などの特殊効果の解決を行う
-
-                // 05.
+                turnState = TurnState.DecideEnemyBehavior;
             }
-            //********************************************************************************
-
-            //****************プレイヤーの振る舞い予定が、攻撃だった場合****************
-            if (PlayerManager.Instance.scheduledBehavior == PlayerManager.ScheduledBehavior.Attack)
+            //もし自機ユニットの振る舞い予定が攻撃だった場合、turnStateをDecideEnemyBehave(に遷移させる
+            else if (Unit.unitList[0].scheduledBehavior == PlayerManager.ScheduledBehavior.Attack)
             {
+                turnState = TurnState.StartPlayerAttack;
+            }
+        }
+        //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】自機ユニットの振る舞い予定を決定するeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 
-                // 01.プレイヤーの攻撃アニメーションと、攻撃を受けた敵ユニットの怯みアニメーションの開始
-                if (gameState == GameState.StartPlayerAttack)
-                {
-                    PlayerManager.Instance.AnimatePlayerAttack();
-                    return;
-                }
 
-                // 02.アニメーション終了の検知
-                if (gameState == GameState.WaitPlayerAttackComplete)
+        //ssssssssssssssssssssssssssssssssssssssssssssssss【始】自機ユニットの振る舞い予定に従いターン処理を場合分けするsssssssssssssssssssssssssssss
+        //もし自機ユニットが振る舞い予定を決定していた場合
+        if (Unit.unitList[0].scheduledBehavior != PlayerManager.ScheduledBehavior.NotDecided)
+        {
+            //================================CASE.1:自機ユニットの振る舞い予定が移動だった場合========================
+            if (Unit.unitList[0].scheduledBehavior == PlayerManager.ScheduledBehavior.Move)
+            {
+                // 01.//全敵ユニットの振る舞い予定を決め、turnSateを遷移させる
+                if (turnState == TurnState.DecideEnemyBehavior)
                 {
-                    PlayerManager.Instance.DetectAttackComplete();
-                }
-
-                // 敵ユニットの死亡判定を調べる
-                if (gameState == GameState.DecideEnemyBehavior)
-                {
-                    for (int i = 0; i < EnemyManager.Instance.EnemiesController.Count; i++)
+                    for(int i = 1; i < Unit.unitList.Count; i++)
                     {
-                        if (EnemyManager.Instance.EnemiesController[i].isAlive == false)
+                        Unit.unitList[i].DecideBehavior();
+                    }
+                    turnState = TurnState.StartUnitMovement;
+                }
+                // 02.ユニット移動中真偽値を真にし、振る舞い予定が移動である全ユニットについて移動を始め、turnStateを遷移させる
+                if (turnState == TurnState.StartUnitMovement)
+                {
+                    unitsAreMoving = true;
+                    for(int i = 0; i < Unit.unitList.Count; i++)
+                    {
+                        if(Unit.unitList[i].scheduledBehavior == PlayerManager.ScheduledBehavior.Move)
                         {
-                            EnemyManager.Instance.EnemiesController[i].ResolveEnemyDeath();
+                            Unit.unitList[i].StartUnitMovement();
                         }
                     }
+                    turnState = TurnState.DecidePlayerBehavior;
                 }
-
-                // 03.攻撃されたユニットが反撃できるのであれば、反撃する
-
-                // 04.反撃アニメーションと、怯みアニメーションの開始
-
-                // 05.アニメーション終了の検知
-
-                // 06.その他の敵ユニットの振る舞い予定を決める
-                if (gameState == GameState.DecideEnemyBehavior)
-                {
-                    EnemyManager.Instance.DecideEnemyBehave();
-                }
-                // 07.プレイヤーと敵ユニットの移動を始める
-                else if (gameState == GameState.StartUnitMovement)
-                {
-                    PlayerManager.Instance.AnimatePlayerMovement();
-                    EnemyManager.Instance.AnimateEnemyMovement();
-                    gameState = GameState.WaitMovementComplete;
-                }
-                // 08.各ユニットの移動アニメーション終了の検知
-                else if (gameState == GameState.WaitMovementComplete)
-                {
-                    DetectMovementComplete();
-                }
-
-                // 09.移動後の罠や状態以上の解決
-
-                // 10.移動しなかった敵ユニットの攻撃処理
             }
-            //********************************************************************************
+            //================================CASE.1:自機ユニットの振る舞い予定が移動だった場合========================
+
+            //================================CASE.2:自機ユニットの振る舞い予定が攻撃だった場合========================
+            if (PlayerManager.instance.scheduledBehavior == PlayerManager.ScheduledBehavior.Attack)
+            {
+                // 01.自機ユニットの攻撃アニメーション開始し(敵の受撃アニメーションの開始も行う)、trunStateを遷移させ、ターン処理をここで打ち切る
+                if (turnState == TurnState.StartPlayerAttack)
+                {
+                    Unit.unitList[0].StartAttackAnimation();
+                    turnState = TurnState.AfterPlayerAttack;
+                    return;
+                }
+                // 02.戦闘の結果を解決し、turnStateを遷移させる
+                if (turnState == TurnState.AfterPlayerAttack)
+                {
+                    Unit.ResolveBattleResult();
+                    turnState = TurnState.DecideEnemyBehavior;
+                }
+                // 0x.敵ユニットの振る舞い予定を決め、turnStateを遷移させる
+                if (turnState == TurnState.DecideEnemyBehavior)
+                {
+                    for (int i = 1; i < Unit.unitList.Count; i++)
+                    {
+                        Unit.unitList[i].DecideBehavior();
+                    }
+                    turnState = TurnState.StartUnitMovement;
+                }
+                // 0x.ユニット移動中真偽値を真にし、振る舞い予定が移動である全ユニットについて移動を始め、turnStateを遷移させる
+                if (turnState == TurnState.StartUnitMovement)
+                {
+                    unitsAreMoving = true;
+                    for (int i = 0; i < Unit.unitList.Count; i++)
+                    {
+                        if (Unit.unitList[i].scheduledBehavior == PlayerManager.ScheduledBehavior.Move)
+                        {
+                            Unit.unitList[i].StartUnitMovement();
+                        }
+                    }
+                    turnState = TurnState.DecidePlayerBehavior;
+                }
+            }
+            //================================CASE.2:自機ユニットの振る舞い予定が攻撃だった場合========================
         }
-
-        //frameCountをインクリメントする
-        frameCount++;
-
-    }
-
-    public void GameOver()
-    {
-        //ゲームオーバー時
-    }
-
-    //各ユニットの移動が完了したことを検知する関数
-    private void DetectMovementComplete()
-    {
-        //プレイヤーの移動が完了していなかったら戻り値を返す
-        if (PlayerManager.Instance.scheduledBehavior == PlayerManager.ScheduledBehavior.Move && PlayerManager.Instance.isMoved == false) return;
-
-        //敵ユニットに対して、移動が完了していたらxをインクリメントする
-        int x = 1;
-        for(int i = 0; i < EnemyManager.Instance.EnemiesController.Count; i++)
-        {
-            if (EnemyManager.Instance.EnemiesController[i].isMoved == true) x++;
-        }
-        //xが敵ユニットの数だけインクリメントされていたらすべての敵の移動が終わっているのでゲームステートを遷移させる
-        if (x > EnemyManager.Instance.EnemiesController.Count)
-        {
-            gameState = GameState.DecidePlayerBehavior;
-        }
+        //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】自機ユニットの振る舞い予定に従いターン処理を場合分けするeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        
+                                                                                                                                                                                                //EEEEE
+        //EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE【終了】ターン処理【終了】EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
     }
 }

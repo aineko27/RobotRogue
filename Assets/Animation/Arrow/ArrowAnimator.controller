@@ -8,13 +8,13 @@ AnimatorController:
   m_Name: ArrowAnimator
   serializedVersion: 5
   m_AnimatorParameters:
-  - m_Name: DirectionY
+  - m_Name: faceDirectionX
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 0}
-  - m_Name: DirectionX
+  - m_Name: faceDirectionY
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
@@ -112,8 +112,8 @@ BlendTree:
     m_CycleOffset: 0
     m_DirectBlendParameter: DirectionY
     m_Mirror: 0
-  m_BlendParameter: DirectionX
-  m_BlendParameterY: DirectionY
+  m_BlendParameter: faceDirectionX
+  m_BlendParameterY: faceDirectionY
   m_MinThreshold: 0
   m_MaxThreshold: 1
   m_UseAutomaticThresholds: 1

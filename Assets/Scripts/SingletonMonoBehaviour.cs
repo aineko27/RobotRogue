@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 //クラス<シングルトン>の定義を行う
-public class SingletonMonoBehaviour<T> : MonoBehaviour where T : MonoBehaviour
+public class SingletonMonoBehavior<T> : MonoBehaviour where T : MonoBehaviour
 {
     private static T instance;
     public static T Instance
@@ -16,7 +16,7 @@ public class SingletonMonoBehaviour<T> : MonoBehaviour where T : MonoBehaviour
 
                 if(instance == null)
                 {
-                    Debug.LogError(typeof(T) + " is nothing");
+                    Debug.LogError("ERROR: SingletonMonoBehavior => " + typeof(T) + " is nothing");
                 }
             }
             return instance;

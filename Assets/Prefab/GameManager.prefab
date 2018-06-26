@@ -25,7 +25,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 4294967295
   m_IsActive: 1
 --- !u!4 &4308752881911386
 Transform:
@@ -51,5 +51,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 095d9bb3b6f2c2b4984fe64cae495dfa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  randomSeed: 0
+  EnemyPrefab: {fileID: 1721761131113018, guid: 888e92bb596a270449953c134ac543bf,
+    type: 2}
   playState: 0

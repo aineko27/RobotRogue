@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BoardManager : SingletonMonoBehaviour<BoardManager>
+public class BoardManager : SingletonMonoBehavior<BoardManager>
 {
     //各種変数の定義
-    public Vector2Int boardWidth = new Vector2Int(-8, 8);
-    public Vector2Int boardHeight = new Vector2Int(-8, 8);
+    public static Vector2Int boardWidth = new Vector2Int(-8, 8);
+    public static Vector2Int boardHeight = new Vector2Int(-8, 8);
 
     public GameObject[] floorSprite;
     public GameObject[] outerWallSprite;
@@ -31,6 +31,7 @@ public class BoardManager : SingletonMonoBehaviour<BoardManager>
         //まずはマップを生成する
         CreatMap();
     }
+
 
     public void CreatMap()
     {

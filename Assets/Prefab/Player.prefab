@@ -167,13 +167,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c527759ecd8eb2e4e8eb2183c2c00bf6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveTime: 0.1
+  indexNumber: 0
   blockingLayer:
     serializedVersion: 2
     m_Bits: 256
-  moveDirection: {x: 0, y: 0}
-  isMoved: 0
+  hitPoint: 0
+  isAlive: 1
+  canMove: 0
+  isMoving: 1
+  unitName: 0
   scheduledBehavior: 0
+  attackType: 0
 --- !u!212 &212127851535624662
 SpriteRenderer:
   m_ObjectHideFlags: 1

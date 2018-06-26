@@ -51,5 +51,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26dcf4bb27f69b44aa772e40d8e2b89e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Enemy: {fileID: 1721761131113018, guid: 888e92bb596a270449953c134ac543bf, type: 2}
-  moveTime: 0.1
+  blockingLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  hitPoint: 0
+  isAlive: 0
+  canMove: 0
+  isMoved: 0
+  scheduledBehavior: 0
+  attackType: 0
+  indexNumber: 0
+  scheduledBehavior: 0
+  enemyName: 0
