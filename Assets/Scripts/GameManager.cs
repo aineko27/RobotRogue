@@ -4,7 +4,7 @@ using System.IO;
 using UnityEngine;
 using System;
 
-public class GameManager : SingletonMonoBehavior<GameManager>
+public class GameManager : SingletonMonoBehaviour<GameManager>
 {
     //フレームカウントを宣言、各フレームごとにインクリメントする
     [Watch] public static int frameCount = 0;
@@ -21,8 +21,8 @@ public class GameManager : SingletonMonoBehavior<GameManager>
     //ランダムシードを宣言する
     private static int randomSeed;
 
-    //ユニットが移動中であるかを示す真偽値の宣言
-   private static bool unitsAreMoving = false;
+    //が移動中であるユニットを数える整数値の宣言
+    public static int movingUnitsCount = 0;
 
     //アニメーションが作動しているかを示す真偽値の宣言
     public static bool animationIsRunning = false;
@@ -64,7 +64,7 @@ public class GameManager : SingletonMonoBehavior<GameManager>
         WaitPlayerAttackComplete,
         WaitMovementComplete,
     }
-    [Watch] private static TurnState turnState;
+    [Watch] public static TurnState turnState;
 
     //playStateの列挙体と変数の宣言
     public enum PlayState
@@ -142,7 +142,6 @@ public class GameManager : SingletonMonoBehavior<GameManager>
         //各種ステートの更新
         gameState = GameState.InDungeon;
         turnState = TurnState.DecidePlayerBehavior;
-        WindowManager.windowState = WindowManager.WindowState.field;
 
         //ボードのセットアップ
         BoardManager.Instance.SetupBoard();
@@ -150,10 +149,7 @@ public class GameManager : SingletonMonoBehavior<GameManager>
         //自機ユニットのステータスを設定し、自機ユニットををユニットリストの0番目に加える
         //PlayerManager.SetUnitStatus();
         Unit.unitList.Add(PlayerManager.instance.GetComponent<PlayerManager>());
-
-        //自機ユニットをCameraControllerの参照オブジェクトに設定する
-        //CameraController.RefferenceObject = Unit.
-
+        
         //敵の配置
         GameObject instance = Instantiate(EnemyPrefab);
         instance.GetComponent<EnemyManager>().SetUnitStatus(EnemyManager.UnitName.EliteSkelton);
@@ -186,35 +182,15 @@ public class GameManager : SingletonMonoBehavior<GameManager>
         //EEEEE
         //EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE【終了】デバッグ関連のシステム処理【終了】EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 
-        
+
 
         //SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS【開始】ターン前の演出・操作関連の処理【開始】SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
         //SSSSS
         //ssssssssssssssssssssssssssssssssssssssssssssssss【始】ユニットが移動中の処理sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
         //ユニット移動中真偽値が真である場合
-        if (unitsAreMoving == true)
+        if (movingUnitsCount > 0)
         {
-            //checkCountを宣言
-            int checkCount = 1;
-
-            //全ユニットに対して移動中であるかを判別し、移動中でなかった場合、checkCountをインクリメントする
-            for (int i = 0; i < Unit.unitList.Count; i++)
-            {
-                if (Unit.unitList[i].isMoving == false)
-                {
-                    checkCount++;
-                }
-            }
-            //全ユニットが移動を終了している場合、ユニット移動中真偽値を偽にする
-            if(checkCount > Unit.unitList.Count)
-            {
-                unitsAreMoving = false;
-            }
-            //少なくとも1つのユニットが移動中の場合、ターン処理をここで打ち切る
-            else
-            {
-                return;
-            }
+            return;
         }
         //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】ユニットが移動中の処理eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 
@@ -245,16 +221,17 @@ public class GameManager : SingletonMonoBehavior<GameManager>
         if (messageIsStacking == true)
         {
             //まだメッセージウィンドウが表示されていない場合(又は)zキーが押された場合、メッセージテキストを更新し表示する
-            if (WindowManager.MessageWindow.activeSelf == false || InputFunction.GetKeyDown("Z") == true)
+            if (MessageWindowController.MessageWindow.activeSelf == false || InputFunction.GetKeyDown("Z") == true)
+
             {
                 //メッセージテキストを更新し表示
-                WindowManager.DisplayMessageText();
+                MessageWindowController.DisplayMessageText();
 
                 //もしこれ以上メッセージの蓄積がない場合、キー入力制限真偽値を真にし、遅延処理後にメッセージウィンドウを非表示にする
                 if (messageIsStacking == false)
                 {
                     keyInputRestrictionCount = 24;
-                    StartCoroutine(WindowManager.SetWindowInactiveWithDelay(2.0f));
+                    StartCoroutine(MessageWindowController.SetWindowInactiveWithDelay(1.5f));
                 }
                 return;
             }
@@ -265,7 +242,7 @@ public class GameManager : SingletonMonoBehavior<GameManager>
             }
         }
         //eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee【終】テキストウィンドウが表示されている場合eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-
+        
 
         //ssssssssssssssssssssssssssssssssssssssssssssssss【始】キー入力制限がかかっている場合sssssssssssssssssssssssssssssssssssssssssssssssssssssss
         //キー入力制限カウントが0より大きかった場合、カウントをディクリメントし、ターン処理をここで打ち切る
@@ -333,11 +310,11 @@ public class GameManager : SingletonMonoBehavior<GameManager>
                 // 02.ユニット移動中真偽値を真にし、振る舞い予定が移動である全ユニットについて移動を始め、turnStateを遷移させる
                 if (turnState == TurnState.StartUnitMovement)
                 {
-                    unitsAreMoving = true;
                     for(int i = 0; i < Unit.unitList.Count; i++)
                     {
                         if(Unit.unitList[i].scheduledBehavior == PlayerManager.ScheduledBehavior.Move)
                         {
+                            movingUnitsCount++;
                             Unit.unitList[i].StartUnitMovement();
                         }
                     }
@@ -374,11 +351,12 @@ public class GameManager : SingletonMonoBehavior<GameManager>
                 // 0x.ユニット移動中真偽値を真にし、振る舞い予定が移動である全ユニットについて移動を始め、turnStateを遷移させる
                 if (turnState == TurnState.StartUnitMovement)
                 {
-                    unitsAreMoving = true;
+                    //unitsAreMoving = true;
                     for (int i = 0; i < Unit.unitList.Count; i++)
                     {
                         if (Unit.unitList[i].scheduledBehavior == PlayerManager.ScheduledBehavior.Move)
                         {
+                            movingUnitsCount++;
                             Unit.unitList[i].StartUnitMovement();
                         }
                     }

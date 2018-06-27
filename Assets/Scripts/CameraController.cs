@@ -8,7 +8,7 @@ public class CameraController : MonoBehaviour
     public static GameObject ReferenceObject;
 
     //メインカメラとプレイヤーのオフセット値の宣言
-    private static Vector3 cameraOffset;
+    private static Vector3 offset;
 
     //Awake
     void Awake()
@@ -22,7 +22,7 @@ public class CameraController : MonoBehaviour
         //参照オブジェクトを取得する
         ReferenceObject = GameObject.FindGameObjectWithTag("Player");
         //カメラのオフセット値を求める
-        cameraOffset = transform.position - ReferenceObject.transform.position;
+        offset = transform.position - ReferenceObject.transform.position;
     }
 
     //Update
@@ -35,7 +35,7 @@ public class CameraController : MonoBehaviour
         else
         {
             //MainCameraの位置情報を更新する
-            transform.position = ReferenceObject.transform.position + cameraOffset;
+            transform.position = ReferenceObject.transform.position + offset;
         }
     }
 }

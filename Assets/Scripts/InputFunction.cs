@@ -4,14 +4,13 @@ using UnityEngine;
 using System;
 using System.IO;
 
-public class InputFunction : SingletonMonoBehavior<InputFunction>
+public class InputFunction : SingletonMonoBehaviour<InputFunction>
 {
     //変数の宣言
     private static string inputtedKeyWrite;
     private static string inputtedKeyRead;
     private static string[] savedKeyArray = new string[0];
     private static string[] savedKeyArrayTemp;
-
 
     //InputFunctionを生成する準備
     public static InputFunction instance = null;
@@ -103,7 +102,7 @@ public class InputFunction : SingletonMonoBehavior<InputFunction>
         //もしプレイステートがリプレイの場合、保存されたキー入力の記録に従って真偽値を返す
         else 
         {
-            //１つ目の配列には""が入っているので無視する
+            //保存キー入力配列の要素のいずれかと、引数のキーコードが一致する場合、真を返す
             for (int i = 0; i < savedKeyArray.Length; i++)
             {
                 //配列の中に引数のキーコードと一致するものがあればtrueを返す
@@ -112,10 +111,12 @@ public class InputFunction : SingletonMonoBehavior<InputFunction>
                     return true;
                 }
             }
+            //そうでない場合、偽を返す
             return false;
         }
     }
 
+    //与えられた(string)引数について、現フレームで押されたか(前フレームでは押されていない状態で)の真偽値を返す関数
     public static bool GetKeyDown(string str)
     {
         //もしプレイステートがニュートラルかセーブの場合、既存のInput.GetKeyの真偽値を返す
@@ -128,25 +129,26 @@ public class InputFunction : SingletonMonoBehavior<InputFunction>
             return Input.GetKeyDown(kc);
         }
 
-        //もしプレイステートがリプレイの場合、保存されたキー入力の記録に従って真偽値を返す
+        //もしプレイステートがリプレイの場合、「保存されたキー入力」と「前フレームの保存されたキー入力」の記録に従って真偽値を返す
         else
         {
+            //現フレームでボタンが押されている場合、前フレームで押されていたかに従い真偽値を返す
             if (GetKey(str) == true)
             {
-                //１つ目の配列には""が入っているので無視する
+                //前フレーム保存キー入力配列の要素のいずれかと、引数のキーコードが一致する場合、偽を返す
                 for (int i = 0; i < savedKeyArrayTemp.Length; i++)
                 {
-                    //配列の中に引数のキーコードと一致するものがあればtrueを返す
-                    if (str == savedKeyArray[i])
+                    if (str == savedKeyArrayTemp[i])
                     {
                         return false;
                     }
                 }
+                //そうでない場合、真を返す
                 return true;
             }
+            //現フレームでボタンが押されていなかった場合、偽を返す
             return false;
         }
-        return true;
     }
 
     //現在の入力情報から、上下左右("Horizontal","Vertical")の移動情報(-1,0,1)の実数値を返す関数

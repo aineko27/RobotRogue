@@ -7,6 +7,7 @@ TagManager:
   - Enemy
   - Wall
   - OuterWall
+  - Canvas
   layers:
   - Default
   - TransparentFX
@@ -55,4 +56,7 @@ TagManager:
     locked: 0
   - name: Units
     uniqueID: 3251146155
+    locked: 0
+  - name: Window
+    uniqueID: 1321478647
     locked: 0

@@ -151,7 +151,6 @@ public abstract class Unit : MonoBehaviour
     {
         if (scheduledBehavior == ScheduledBehavior.Move)
         {
-            isMoving = true;
             StartCoroutine(MoveSmoothly());
         }
     }
@@ -178,7 +177,7 @@ public abstract class Unit : MonoBehaviour
             sqrRemainingDistance = (transform.position - endPosition).sqrMagnitude;
             yield return null;
         }
-        isMoving = false;
+        GameManager.movingUnitsCount--; ;
     }
 
     //攻撃を試みる関数
@@ -252,7 +251,7 @@ public abstract class Unit : MonoBehaviour
         damagedUnit.hitPoint -= damage;
 
         //ダメージ処理の結果をメッセージウィンドウで表示する
-        WindowManager.MakeDamageText(this.unitName.ToString(), damagedUnit.unitName.ToString(), baseAttackDamage);
+        MessageWindowController.MakeDamageText(this.unitName.ToString(), damagedUnit.unitName.ToString(), baseAttackDamage);
 
         //ダメージを受けた際のアニメーションを起動する
         damagedUnit.animator.SetTrigger("triggerTakeDamage");
@@ -261,7 +260,7 @@ public abstract class Unit : MonoBehaviour
         if(damagedUnit.hitPoint < 1)
         {
             damagedUnit.isAlive = false;
-            WindowManager.MakeDeathText(this.unitName.ToString(), damagedUnit.unitName.ToString());
+            MessageWindowController.MakeDeathText(this.unitName.ToString(), damagedUnit.unitName.ToString());
             damagedUnit.animator.SetBool("isDead", true);
         }
     }

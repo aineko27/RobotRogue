@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BoardManager : SingletonMonoBehavior<BoardManager>
+public class BoardManager : SingletonMonoBehaviour<BoardManager>
 {
     //各種変数の定義
     public static Vector2Int boardWidth = new Vector2Int(-8, 8);
